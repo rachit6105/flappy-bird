@@ -1,9 +1,9 @@
 import numpy as np
-import configs
+import game.configs as configs
 from .bird import Bird
-from layer import Layer
-from objects.column import Column
-from objects.floor import Floor
+from game.layer import Layer
+from game.objects.column import Column
+from game.objects.floor import Floor
 
 
 class Birds:

@@ -2,7 +2,7 @@ import os
 import pygame
 import numpy as np
 
-import assets 
+import game.assets as assets
 import game.configs as configs 
 from game.objects.background import Background
 from game.objects.birds import Birds

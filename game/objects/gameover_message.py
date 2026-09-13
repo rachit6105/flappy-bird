@@ -1,7 +1,7 @@
 import pygame.sprite
 
-import assets
-import configs
+import game.assets as assets
+import game.configs as configs
 from layer import Layer
 
 
