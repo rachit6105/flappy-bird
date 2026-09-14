@@ -19,9 +19,6 @@ class Birds:
     def reset(self):
         self.y[:] = configs.SCREEN_HEIGHT // 2
         self.velocity[:] = 0
-        # if self.render :
-        #     del self.sprites
-        #     self.sprites = [Bird(i, self.sprites_group) for i in range(self.n)]
         self.alive[:] = True
         for sprite in self.sprites:
             sprite.rect.y = configs.SCREEN_HEIGHT // 2
@@ -50,6 +47,14 @@ class Birds:
 
         out_of_bounds = (bird_y > 400) | (bird_y < 0)
         self.alive[out_of_bounds] = False
+
+        #CHECK THIS LATER
+        if self.render:  # Safely check render flag
+            for i in np.flatnonzero(out_of_bounds):
+                self.sprites[i].rect.x = -50
+                self.sprites[i].rect.y = 50
+
+
         # broadcast: (population, 1) vs (1, num_pipes) -> (population, num_pipes) overlap matrix
         x_overlap = (bird_x[:, None] < pipe_rects[:, 0] + pipe_rects[:, 2]) & \
                     (bird_x[:, None] + bird_w > pipe_rects[:, 0])

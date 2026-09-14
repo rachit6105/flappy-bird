@@ -8,38 +8,60 @@ def compute_returns(rewards, gamma=0.99):
     G = 0.0
     for r in reversed(rewards):
         G = r + gamma * G
-        returns.insert(0, G)
+        returns.append(G)
+    returns.reverse()
     return returns
 
+def compute_returns_n(rewards, gamma=0.99, order=1):
+    """
+    Generalized discounted returns.
+
+    Each reward r_{t+m} ends up weighted by C(m+order-1, order-1) * gamma^m
+    (a binomial coefficient) instead of just gamma^m — higher order stretches
+    the effective credit-assignment horizon further into the future and
+    inflates the return magnitude.
+    """
+    n = len(rewards)
+    returns = [0.0] * n
+    G = [0.0] * (order + 1)  # G[0] unused, G[1..order] are the levels
+
+    for t in range(n - 1, -1, -1):
+        new_G = [0.0] * (order + 1)
+        prev = rewards[t]
+        for k in range(1, order + 1):
+            new_G[k] = prev + gamma * G[k]
+            prev = new_G[k]  # this level's output feeds the next level's input
+        G = new_G
+        returns[t] = G[order]
+
+    return returns
 
 def _setup(policy, lr, population_size, render, load_model=False, model_path=None):
     env = FlappyBirdEnv(population_size=population_size, render=render)
     if load_model:
         print(f"Loading pretrained policy from {model_path}....")
         try:
-            policy.load(model_path)
+            policy.load_state_dict(torch.load(model_path))
             print(f"Loaded pretrained policy from {model_path}")
         except FileNotFoundError:
             print("No pretrained policy found, starting from scratch.")
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    policy.to(device)
     optimizer = torch.optim.Adam(policy.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = "cpu"
+    policy.to(device)
     return env, optimizer, scheduler, device
 
-
 def _setup_episode(policy, population_size, device):
-    # init_hidden() returns a real tensor for GRUBase subclasses and None for
-    # MLPBase subclasses -- policy.get_actions() handles either uniformly,
-    # so this loop never needs to know which family it's driving.
     hidden = policy.init_hidden(population_size, device)
     done = False
     log_probs_per_bird = [[] for _ in range(population_size)]
+    probs_per_bird = [[] for _ in range(population_size)]
     rewards_per_bird = [[] for _ in range(population_size)]
     alive_before = np.ones(population_size, dtype=bool)
     prev_scores = np.zeros(population_size, dtype=np.int32)
     prev_action = torch.zeros(population_size, dtype=torch.float32, device=device)
-    return hidden, done, log_probs_per_bird, rewards_per_bird, alive_before, prev_scores, prev_action
+    return hidden, done, log_probs_per_bird,probs_per_bird, rewards_per_bird, alive_before, prev_scores, prev_action
 
 
 def train(policy, num_episodes=500, population_size=100, gamma=0.98, lr=5e-3, render=False,load_model: bool = False, model_path: str = None, save_path: str = None):
@@ -49,11 +71,10 @@ def train(policy, num_episodes=500, population_size=100, gamma=0.98, lr=5e-3, re
 
     for episode in range(num_episodes):
         state = env.reset()
-        hidden, done, log_probs_per_bird, rewards_per_bird, alive_before, prev_scores, prev_action = \
-            _setup_episode(policy, population_size, device)
+        hidden, done, log_probs_per_bird,probs_per_bird, rewards_per_bird, alive_before, prev_scores, prev_action = _setup_episode(policy, population_size, device)
 
         while not done:
-            actions, log_probs, hidden = policy.get_actions(state, prev_action, hidden, stochastic=True, device=device)
+            actions, log_probs,_, hidden = policy.get_actions(state, prev_action, hidden, stochastic=True, device=device)
             next_state, alive_after, scores, done = env.step(actions)
             prev_action = torch.from_numpy(actions).to(device).float()
 
@@ -64,33 +85,43 @@ def train(policy, num_episodes=500, population_size=100, gamma=0.98, lr=5e-3, re
             step_reward = 0.1 + (10 * score_delta)
 
             for i in range(population_size):
-                if alive_before[i] and log_probs is not None:  # Only record log_probs for birds that were alive this step
+                if alive_before[i] & (log_probs is not None):  # Only record log_probs for birds that were alive this step
                     log_probs_per_bird[i].append(log_probs[i])
                     rewards_per_bird[i].append(step_reward[i])
+                    # probs_per_bird[i].append(probs[i])
 
             alive_before = alive_after
             state = next_state
-
         all_log_probs = []
         all_returns = []
+        # all_probs = []
 
         for i in range(population_size):
             if len(rewards_per_bird[i]) == 0:
                 continue
+            rewards_per_bird[i] = compute_returns(rewards_per_bird[i], gamma=gamma)
             returns_to_go = compute_returns(rewards_per_bird[i], gamma=gamma)
             all_log_probs.extend(log_probs_per_bird[i])
             all_returns.extend(returns_to_go)
+            # all_probs.extend(probs_per_bird[i])
+
 
         returns_tensor = torch.tensor(all_returns, dtype=torch.float32, device=device)
         returns_tensor = (returns_tensor - returns_tensor.mean()) / (returns_tensor.std() + 1e-8)
         log_probs_tensor = torch.stack(all_log_probs)
 
+        # probs_tensor = torch.stack(all_probs)
+        # eps = 1e-8
+        # entropy = -(probs_tensor * torch.log(probs_tensor + eps) + (1 - probs_tensor) * torch.log(1 - probs_tensor + eps)).mean()
+
         # To keep exploring even when it is stuck somewhere
         entropy = -(log_probs_tensor * torch.exp(log_probs_tensor)).mean()
+        # print(entropy)
         loss = -(log_probs_tensor * returns_tensor).mean() - entropy * 0.01
 
         optimizer.zero_grad()
         loss.backward()
+        # print(list(policy.parameters())[0])
         torch.nn.utils.clip_grad_norm_(policy.parameters(), max_norm=5.0)
         optimizer.step()
         scheduler.step()
@@ -101,18 +132,22 @@ def train(policy, num_episodes=500, population_size=100, gamma=0.98, lr=5e-3, re
         if mean_score > best_score:
             best_score = mean_score
             policy.save(save_path)
+            print(f"Weights saved . Best score till now : {best_score}")
 
         print(f"Episode {episode:4d} | mean_score={mean_score:6.2f} | max_score={max_score:3d} | loss={loss.item():8.4f}")
+        del hidden, done, log_probs_per_bird, rewards_per_bird, alive_before, prev_scores, prev_action,probs_per_bird
 
     env.close()
     return policy
 
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
 
 if __name__ == "__main__":
-    from models.gru import GRU1
+    from models.mlp import MLP1 as policyNet
 
     load_model_path = None
-    save_path = r"runs/gru1.pt"
+    save_path = r"runs/mlp1.pt"
 
     #TODO : Add reward function to this 
     config = {
@@ -124,7 +159,7 @@ if __name__ == "__main__":
         "load_model": 0,
         "model_path": save_path,
     }
-    policy = GRU1()
+    policy = policyNet()
     trained_policy = train(policy,num_episodes=config["num_episodes"],lr=config["lr"],population_size=config["population_size"],
         gamma=config["gamma"],render=config["render"],load_model=config["load_model"],
         model_path=load_model_path,
