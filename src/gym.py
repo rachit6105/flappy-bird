@@ -15,9 +15,10 @@ class FlappyBirdEnv:
     COLUMN_SPAWN_EVERY_N_STEPS = 100
     spinner = itertools.cycle(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'])
 
-    def __init__(self, population_size, render=True):
+    def __init__(self, population_size, render=True,display_score=False):
         self.render_enabled = render
         self.population_size = population_size
+        self.display_score = display_score
 
         if not self.render_enabled:
             os.environ["SDL_VIDEODRIVER"] = "dummy"
@@ -37,8 +38,8 @@ class FlappyBirdEnv:
         else:
             self.screen = pygame.display.set_mode((1, 1)) 
             self.sprites = pygame.sprite.Group()
-            # Floor(0, self.sprites)
-            # Floor(1, self.sprites)
+            Floor(0, self.sprites)
+            Floor(1, self.sprites)
 
         self.clock = pygame.time.Clock()
 
@@ -83,7 +84,7 @@ class FlappyBirdEnv:
             pipe1 = pipe2 = [0, 0]
 
         broadcasted_pipes = np.tile([pipe1[0], pipe1[1], pipe2[0], pipe2[1]], (self.population_size, 1))
-        return np.hstack((bird_states, broadcasted_pipes)).astype(np.float32)
+        return np.hstack((bird_states, broadcasted_pipes,np.zeros(self.population_size))).astype(np.int32)
 
     def step(self, actions):
         """
@@ -92,9 +93,10 @@ class FlappyBirdEnv:
         """
         actions = np.asarray(actions)
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                raise SystemExit("Window closed")
+        if self.render_enabled:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise SystemExit("Window closed")
 
         if self.step_count % self.COLUMN_SPAWN_EVERY_N_STEPS == 0:
             new_col = Column(self.sprites)
@@ -107,18 +109,13 @@ class FlappyBirdEnv:
                     continue
                 sprite.update()
 
+        self.columns = [col for col in self.columns if col.alive()]
         # Update columns and collect their rects for vectorized collision checks
         pipe_rects = []
         for col in self.columns:
             col.update()
             pipe_rects.append([col.rect.x, col.rect.y, col.rect.width, col.rect.height])
             
-            # You can also do scoring right here instead of a separate loop!
-            # if col.is_passed():
-            #     self.scores[self.birds.alive] += 1
-            #     if self.render_enabled:
-            #         assets.play_audio("point")
-
         pipe_rects = np.array(pipe_rects, dtype=np.float32) if pipe_rects else np.empty((0, 4), dtype=np.float32)
 
         prev_alive_count = int(self.birds.alive.sum())
@@ -141,12 +138,12 @@ class FlappyBirdEnv:
                     assets.play_audio("point")
 
 
-        # if self.step_count%1500:
-            # self.current_frame = next(self.spinner)
+        if self.display_score:
+            if self.step_count%1500:
+                self.current_frame = next(self.spinner)
 
-        # max_score = self.scores.max()
-        # print(f"\r{self.current_frame} Flying... Max Score: {max_score:.4f}\033[K", end="", flush=True)
-
+            max_score = self.scores.max()
+            print(f"\r{self.current_frame} Flying... Max Score: {max_score}\033[K", end="", flush=True)
 
 
         if self.render_enabled:
@@ -158,6 +155,7 @@ class FlappyBirdEnv:
         self.step_count += 1
 
         state = self._get_state()
+        state = np.column_stack((state,actions))
         done = bool(self.kill_count >= self.population_size)
 
         return state, self.birds.alive.copy(), self.scores.copy(), done
