@@ -5,7 +5,7 @@ from src.gym import FlappyBirdEnv
 from models.gru import GRU1
 
 
-def test(model_path, population_size=1, render=True, num_episodes=5):
+def test(model_path, threshold,population_size=1, render=True, num_episodes=5):
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     env = FlappyBirdEnv(population_size=population_size, render=render)
@@ -22,17 +22,13 @@ def test(model_path, population_size=1, render=True, num_episodes=5):
             done = False
             steps = 0
 
-            # Reset recurrent state and prev_action fresh at the start of every episode —
-            # a bird's memory shouldn't carry over from the last episode's death.
             hidden = policy.init_hidden(population_size, device)
             prev_action = torch.zeros(population_size, dtype=torch.float32, device=device)
 
             while not done:
-                # stochastic=False -> deterministic threshold, no random sampling.
-                # This is the "actually play well" mode, as opposed to training-time exploration.
                 actions, _,_, hidden = policy.get_actions(
                     state, prev_action, hidden,
-                    stochastic=False, device=device, threshold=0.5,
+                    stochastic=False, device=device, threshold=threshold,
                 )
                 state, _, scores, done = env.step(actions)
                 steps += 1
@@ -50,12 +46,9 @@ def test(model_path, population_size=1, render=True, num_episodes=5):
 
 
 if __name__ == "__main__":
-    test(
-        model_path="/home/tichar/Documents/ee798/flappy_bird/runs/gru4.pt",
-        population_size=1,   # single bird for clean visual evaluation
-        render=False,
-        num_episodes=100,
-    )
+    # for i in range(60,70,1):
+        # print(f"Testing for  = {i/100}")
+    test(model_path="runs/gru_og_reptest.pt",population_size=1,threshold=0.65 ,render=0,num_episodes=10)
 
 # Current best : Overall mean score across 30 episodes: 739.69
 # Current best max score : 2101

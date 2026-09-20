@@ -1,0 +1,10 @@
+{
+  "num_episodes": 1000,
+  "population_size": 100,
+  "gamma": 0.99,
+  "lr": 0.003,
+  "render": 0,
+  "load_model": 1,
+  "model_path": "runs/mlp_frame_stack_cont.pt",
+  "K": 50
+}

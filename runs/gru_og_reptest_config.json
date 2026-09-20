@@ -1,0 +1,9 @@
+{
+  "num_episodes": 800,
+  "population_size": 200,
+  "gamma": 0.97,
+  "lr": 0.005,
+  "render": 0,
+  "load_model": 0,
+  "model_path": "runs/gru_og_reptest.pt"
+}
