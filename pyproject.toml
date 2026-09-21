@@ -1,6 +1,6 @@
 [project]
 name = "flappy-bird"
-version = "0.1.0"
+version = "0.2.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -8,13 +8,12 @@ dependencies = [
     "pygame>=2.6.1",
     "torch>=2.14.0",
     "torchvision>=0.29.0",
+    "typer>=0.27.2",
 ]
 
 [project.scripts]
-flappy-bird = "main:main"
-eval-mlp = "main:main_mlp"
-eval-gru = "main:main_gru"
-eval-lstm = "main:main_lstm"
+flappy-bird = "main:app"
+
 
 [build-system]
 requires = ["setuptools>=61"]

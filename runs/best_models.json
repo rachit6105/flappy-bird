@@ -1,0 +1,5 @@
+{
+  "gru":  {"model": "gru.GRU1",       "checkpoint": "/home/tichar/Documents/ee798/flappy_bird/runs/gru1.pt",  "K": 1 ,"thr" : 0.65},
+  "lstm": {"model": "lstm.LSTM1",     "checkpoint": "checkpoints/best/lstm.pt", "K": 1},
+  "mlp":  {"model": "mlp.MLP_Temp1",  "checkpoint": "/home/tichar/Documents/ee798/flappy_bird/runs/mlp_temporal.pt",  "K": 50}
+}

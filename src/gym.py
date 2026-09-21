@@ -61,7 +61,7 @@ class FlappyBirdEnv:
         self.scores = np.zeros(self.population_size, dtype=np.int32)
         self.kill_count = 0
         self.step_count = 0
-        return self._get_state()
+        return np.column_stack((self._get_state(),np.zeros(self.population_size)))
 
     def _get_state(self):
         bird_states = np.zeros((self.population_size, 2), dtype=np.float32)
@@ -84,7 +84,7 @@ class FlappyBirdEnv:
             pipe1 = pipe2 = [0, 0]
 
         broadcasted_pipes = np.tile([pipe1[0], pipe1[1], pipe2[0], pipe2[1]], (self.population_size, 1))
-        return np.hstack((bird_states, broadcasted_pipes,np.zeros(self.population_size))).astype(np.int32)
+        return np.hstack((bird_states, broadcasted_pipes)).astype(np.int32)
 
     def step(self, actions):
         """
@@ -139,7 +139,7 @@ class FlappyBirdEnv:
 
 
         if self.display_score:
-            if self.step_count%1500:
+            if self.step_count%500 == 0:
                 self.current_frame = next(self.spinner)
 
             max_score = self.scores.max()

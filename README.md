@@ -35,7 +35,7 @@ flappy_bird/
 ### 1. Clone the repo
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/rachit6105/flappy-bird
 cd flappy_bird
 ```
 

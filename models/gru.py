@@ -1,16 +1,11 @@
 import torch
 import torch.nn as nn
-from models.base import normalize_state, sample_actions
+from models.base import *
+from models.registry import *
 
 
-class GRUBase(nn.Module):
+class GRUBase(Policy):
     """
-    Base class for GRU-based (recurrent) policies. Subclasses (GRU1,
-    GRUWithLayerNorm, ...) define their own __init__ -- building
-    self.input_proj, self.gru, self.head, setting self.gru_hidden, and
-    calling _init_weights -- while forward, get_actions, init_hidden,
-    save/load stay shared here and shouldn't need touching per-variant.
-
     Contract for subclasses:
         self.gru_hidden : int, size of the recurrent hidden state
         self.input_proj : nn.Module, (batch, input_size) -> (batch, proj_size)
@@ -23,7 +18,7 @@ class GRUBase(nn.Module):
     def init_hidden(self, batch_size, device):
         return torch.zeros(batch_size, self.gru_hidden, device=device)
 
-    def get_actions(self, state_matrix, prev_action, hidden, stochastic=True, device="cuda", threshold=0.5):
+    def get_actions(self, state_matrix, hidden, stochastic=True, device="cuda", threshold=0.5):
         """
         hidden: (population, gru_hidden) tensor carried across steps within
         an episode -- caller is responsible for threading new_hidden back in
@@ -33,18 +28,12 @@ class GRUBase(nn.Module):
         """
         normalized = normalize_state(state_matrix)
         state_tensor = torch.from_numpy(normalized).to(device)
-
-        probs, new_hidden = self.forward(state_tensor, prev_action, hidden)
+        probs, new_hidden = self.forward(state_tensor, hidden)
         actions, log_probs = sample_actions(probs, stochastic=stochastic, threshold=threshold)
         return actions, log_probs,probs, new_hidden
 
-    def save(self, path):
-        torch.save(self.state_dict(), path)
 
-    def load(self, path, map_location=None):
-        self.load_state_dict(torch.load(path, map_location=map_location))
-
-
+@register_model
 class GRU1(GRUBase):
 
     def __init__(self, input_size=7, hidden_size=16, gru_hidden=8):
@@ -68,9 +57,8 @@ class GRU1(GRUBase):
         )
         self._init_weights()
 
-    def forward(self, state_batch, prev_action, hidden):
-        x = torch.cat([state_batch, prev_action.unsqueeze(-1)], dim=-1)
-        x = self.input_proj(x)
+    def forward(self, state_batch, hidden):
+        x = self.input_proj(state_batch)
         new_hidden = self.gru(x, hidden)
         logits = self.head(new_hidden).squeeze(-1)
         probs = torch.sigmoid(logits)
@@ -93,15 +81,13 @@ class GRU1(GRUBase):
 
 
 
-class GRU_without_dropout(GRUBase):
+class GRU_no_dropout(GRUBase):
 
     def __init__(self, input_size=7, hidden_size=16, gru_hidden=8):
         super().__init__()
         self.gru_hidden = gru_hidden
         self.input_proj = nn.Sequential(
-            nn.Linear(input_size, hidden_size // 2),
-            nn.Tanh(),
-            nn.Linear(hidden_size // 2, hidden_size),
+            nn.Linear(input_size, hidden_size),
             nn.Tanh(),
         )
         self.gru = nn.GRUCell(hidden_size, gru_hidden)
@@ -114,9 +100,8 @@ class GRU_without_dropout(GRUBase):
         )
         self._init_weights()
 
-    def forward(self, state_batch, prev_action, hidden):
-        x = torch.cat([state_batch, prev_action.unsqueeze(-1)], dim=-1)
-        x = self.input_proj(x)
+    def forward(self, state_batch, hidden):
+        x = self.input_proj(state_batch)
         new_hidden = self.gru(x, hidden)
         logits = self.head(new_hidden).squeeze(-1)
         probs = torch.sigmoid(logits)
