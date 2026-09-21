@@ -36,17 +36,17 @@ def compute_returns_n(rewards, gamma=0.99, order=1):
     return returns
 
 def _setup(policy, lr, population_size, render,device,load_model=False, model_path=None):
-    env = FlappyBirdEnv(population_size=population_size, render=render)
+    env = FlappyBirdEnv(population_size=population_size, render=render,display_score=False)
     if load_model:
-        print(f"Loading pretrained policy from {model_path}....")
         try:
-            policy.load(model_path)
-            print(f"Loaded pretrained policy from {model_path}")
+            # loaded = policy.load(model_path,device)
+            policy.load_state_dict(torch.load(model_path))
+            # del loaded
         except FileNotFoundError:
             print("No pretrained policy found, starting from scratch.")
+    policy.to(device)
     optimizer = torch.optim.Adam(policy.parameters(), lr=lr)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.9)
-    policy.to(device)
     return env, optimizer, scheduler
 
 def _setup_episode(policy, population_size, device):
