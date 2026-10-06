@@ -2,9 +2,12 @@
 
 This repository is an experimentation project for training and comparing reinforcement-learning policies on Flappy Bird. It includes a custom Pygame environment, registered model families such as MLP, GRU, and LSTM, and saved policy checkpoints. The `flappy-bird` command-line tool lets you watch a model play or evaluate its scores over multiple episodes; you can also launch the keyboard-controlled game and play yourself. The gameplay video below shows the MLP policy in action.We achieved best result of **6143** using temporal mlp model.
 
-<p align="center">
-  <video src="./media/mlp_gameplay.mp4" controls width="288"></video>
-</p>
+<div align="center">
+  
+  https://github.com/user-attachments/assets/2baae41b-4dfc-43ca-bd2d-c42f2d748da4
+  
+</div>
+
 
 ## Setup
 
