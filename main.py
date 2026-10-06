@@ -67,7 +67,7 @@ def _parse_kwargs(items: List[str]) -> dict:
     return out
 
 
-def _run(target, episodes, render, population_size, threshold, seed, device:str, kwarg,checkpoint=None):
+def _run(target, episodes, render, population_size, threshold, device:str, kwarg,checkpoint=None):
     if device == "auto":
         device = "cuda" if torch.cuda.is_available() else "cpu"
     device = torch.device(device)
@@ -81,10 +81,6 @@ def _run(target, episodes, render, population_size, threshold, seed, device:str,
     ok = name.lower() == target.lower() if "." in target else family_of(name) == target.lower()
     if not ok:
         raise UserError(f"Checkpoint holds '{name}', which doesn't match '{target}'.")
-
-    if seed is not None:
-        np.random.seed(seed)
-        torch.manual_seed(seed)
 
     def progress(ep):
         typer.echo(f"episode {ep['episode']:3d} | steps={ep['steps']:5d} | "
@@ -112,12 +108,10 @@ def play(
     render: bool = typer.Option(True, "--render/--no-render"),
     population_size: int = typer.Option(1, "--population-size", "-p", min=1),
     threshold: float = typer.Option(0.5, "--threshold", "--thr"),
-    seed: Optional[int] = typer.Option(None, "--seed"),
-    device: str = typer.Option("auto", "--device", help="auto | cpu | cuda"),
     kwarg: List[str] = typer.Option([], "--kwarg", help="Constructor arg for legacy checkpoints, e.g. K=4 (repeatable)."),
 ):
     """Watch a policy play (rendered by default)."""
-    result = _run(target, episodes, render, population_size, threshold, seed, device, kwarg)
+    result = _run(target, episodes, render, population_size, threshold, "cpu", kwarg)
     typer.echo(_summary(result))
 
 
@@ -129,13 +123,12 @@ def eval_(
     render: bool = typer.Option(False, "--render/--no-render"),
     population_size: int = typer.Option(1, "--population-size", "-p", min=1),
     threshold: float = typer.Option(0.5, "--threshold", "--thr"),
-    seed: Optional[int] = typer.Option(None, "--seed"),
     device: str = typer.Option("auto", "--device"),
     kwarg: List[str] = typer.Option([], "--kwarg"),
     as_json: bool = typer.Option(False, "--json", help="Print machine-readable results to stdout."),
 ):
     """Evaluate a policy (headless by default) and report metrics."""
-    result = _run(target, episodes, render, population_size, threshold, seed, device, kwarg, checkpoint=checkpoint)
+    result = _run(target, episodes, render, population_size, threshold, device, kwarg, checkpoint=checkpoint)
     typer.echo(json.dumps(result, indent=2) if as_json else _summary(result))
 
 

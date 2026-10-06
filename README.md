@@ -1,118 +1,94 @@
-# Flappy Bird RL Benchmark
+# Flappy Bird
 
-A lightweight reinforcement learning project for benchmarking different models on the classic Flappy Bird environment.
+This repository is an experimentation project for training and comparing reinforcement-learning policies on Flappy Bird. It includes a custom Pygame environment, registered model families such as MLP, GRU, and LSTM, and saved policy checkpoints. The `flappy-bird` command-line tool lets you watch a model play or evaluate its scores over multiple episodes; you can also launch the keyboard-controlled game and play yourself. The gameplay video below shows the MLP policy in action.We achieved best result of **6143** using temporal mlp model.
 
-## Overview
-
-This repository is built to compare how different neural network policies perform in the same Flappy Bird task. The current setup includes:
-
-- a feedforward MLP baseline
-- a recurrent GRU policy
-- a custom game environment
-- training and evaluation scripts
-- saved model checkpoints in the `runs/` directory
-
-The goal is to test which model learns the game best under the same environment and reward setup.
-
-## Project Structure
-
-```text
-flappy_bird/
-├── README.md
-├── main.py
-├── training.py
-├── eval.py
-├── pyproject.toml
-├── game/
-├── models/
-├── src/
-├── runs/
-└── .venv/
-```
+<p align="center">
+  <video src="./media/mlp_gameplay.mp4" controls width="288"></video>
+</p>
 
 ## Setup
 
-### 1. Clone the repo
+Clone the repository and change into its directory:
 
 ```bash
-git clone https://github.com/rachit6105/flappy-bird
-cd flappy_bird
+git clone https://github.com/rachit6105/flappy-bird.git
+cd flappy-bird
 ```
 
-### 2. Create and sync the environment with uv
+Install [uv](https://docs.astral.sh/uv/) if it is not already available, then install the project dependencies:
 
 ```bash
 uv sync
 ```
 
-This creates the project environment and installs the dependencies from `pyproject.toml`.
+## Play the game
 
-### 3. Activate the environment
-
-```bash
-source .venv/bin/activate
-```
-
-If you prefer to run commands directly through uv without activating the environment, use:
+Launch the keyboard-controlled Pygame game from the repository root:
 
 ```bash
-uv run training.py
-uv run eval.py
+cd game && ../.venv/bin/python main.py
 ```
 
-### 4. Run training and evaluation
+Press **Space** to start and flap. After a collision, press **Escape** to restart. Close the game window to exit.
+
+## Watch an agent play
+
+The `flappy-bird` command-line tool provides commands for playing and evaluating policies. The `play` command renders the selected policy by default and loads its checkpoint from `runs/best_models.json`:
 
 ```bash
-uv run training.py
-uv run eval.py
+flappy-bird play gru
 ```
 
+### Best models
 
-## Game Environment
+The `runs/best_models.json` manifest records the selected model and checkpoint for each family, along with any saved settings:
 
-The environment is implemented in `src/gym.py` and uses a custom Pygame-based Flappy Bird setup. The agent controls a bird that must pass through gaps between pipes while avoiding collisions. The environment exposes a structured state containing:
+| Family | Model | Checkpoint | Recorded settings |
+|---|---|---|---|
+| GRU | `gru.GRU1` | `runs/gru1.pt` | `K=1`, `thr=0.65` |
+| MLP | `mlp.MLP_Temp1` | `runs/mlp_temporal.pt` | `K=50` |
 
-- bird position
-- bird velocity
-- upcoming pipe information
+List registered model families and checkpoints with:
 
-The action space is binary:
+```bash
+flappy-bird list
+```
 
-- 0 = do nothing
-- 1 = flap
+To see all available commands and options:
 
-## Training Approach
+```bash
+flappy-bird --help
+```
 
-Training is performed with a policy-gradient style update in `training.py`.
+## Evaluate a saved policy
 
-The model receives a state, samples an action, and gets a reward based on progress through the game. The return is computed using discounted rewards, normalized, and used to update the policy. The project also includes entropy regularization to encourage exploration and save the best-performing checkpoint.
+Evaluation runs headlessly by default. For example, evaluate the registered GRU policy over 50 episodes:
 
-## Models
+```bash
+flappy-bird eval gru --episodes 50
+```
 
-### MLP
+You can also provide a checkpoint explicitly:
 
-The MLP model is a simple feedforward baseline. It processes the current state and decides whether to flap or not. It is fast and useful as a comparison baseline.
+```bash
+flappy-bird eval gru --checkpoint runs/gru1.pt
+```
 
-### GRU
+Add `--render` to show the game during evaluation. Evaluation reports the mean score, score deviation, best score, and episode count.
 
-The GRU model is designed for sequential decision making. It keeps a hidden state across time steps, which helps it learn temporal patterns in gameplay and react more effectively to pipe spacing and motion.
+### Recorded result
 
-## Current Results
+A 50-episode evaluation recorded a mean score of **1761.52 ± 1372.54**, with a best score of **6143**. Results vary between runs.
 
-The repository currently includes trained GRU checkpoints in `runs/`:
+## Project structure
 
-- `gru1.pt`
-- `gru2.pt`
-- `gru3.pt`
-- `gru4.pt`
-- `gru_max2k.pt`
-
-The evaluation script reports strong GRU performance, with an example mean score around 61.52 across 100 episodes and a best max score of 298 in the current benchmark comments.
-
-## Notes
-
-This project is intended as a model comparison and experimentation workspace. It is set up so additional architectures can be added and evaluated under the same conditions.
-
-## License
-
-This project is for educational and research use.
+```text
+flappy_bird/
+├── main.py             # Policy play/evaluation CLI
+├── game/               # Keyboard-controlled Pygame game
+├── models/             # Policy models and registry
+├── src/                # Environment and evaluation code
+├── runs/               # Checkpoints, model configs, and best_models.json
+├── pyproject.toml
+└── README.md
+```

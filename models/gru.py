@@ -89,14 +89,16 @@ class GRU_no_dropout(GRUBase):
         self.input_proj = nn.Sequential(
             nn.Linear(input_size, hidden_size),
             nn.Tanh(),
+            # nn.Linear(hidden_size // 2, hidden_size),
+            # nn.Tanh(),
         )
         self.gru = nn.GRUCell(hidden_size, gru_hidden)
         self.head = nn.Sequential(
+            nn.Dropout(p=0.1),
             nn.GELU(),
-            nn.LayerNorm(gru_hidden),
             nn.Linear(gru_hidden, gru_hidden // 2),
             nn.GELU(),
-            nn.Linear(gru_hidden // 2, 1),
+            nn.Linear(gru_hidden//2, 1),
         )
         self._init_weights()
 
